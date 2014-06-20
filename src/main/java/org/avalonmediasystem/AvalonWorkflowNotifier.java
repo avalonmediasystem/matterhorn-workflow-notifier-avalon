@@ -21,6 +21,7 @@
 package org.avalonmediasystem;
 
 import org.opencastproject.serviceregistry.api.ServiceRegistry;
+import org.opencastproject.serviceregistry.api.ServiceRegistryException;
 import org.opencastproject.workflow.api.WorkflowService;
 
 import org.apache.commons.lang.StringUtils;
@@ -45,6 +46,8 @@ public class AvalonWorkflowNotifier {
   /** The configuration key for the Avalon pingback URL **/
   private static final String urlConfigKey = "org.avalonmediasystem.avalon.url";
 
+  protected String hostname;
+
   public AvalonWorkflowNotifier() {
   }
 
@@ -65,10 +68,18 @@ public class AvalonWorkflowNotifier {
         logger.warn("Avalon pingback url was not set (" + urlConfigKey + ")");
       else
         logger.info("Avalon pingback url is {}", avalonUrl);
+
+      // Find this host's url
+      hostname = StringUtils.trimToNull(cc.getBundleContext().getProperty("org.opencastproject.server.url"));
     }
 
     listener = new AvalonWorkflowListener(avalonUrl);
     workflowService.addWorkflowListener(listener);
+    try {
+      serviceRegistry.registerService(AvalonWorkflowNotifier.class.getName(), hostname, "/", false);
+    } catch (ServiceRegistryException e) {
+      logger.warn("AvalonWorkflowNotifier not registered with service registry.", e);
+    }
   }
 
   /**
@@ -76,6 +87,12 @@ public class AvalonWorkflowNotifier {
    */
   public void deactivate() {
     workflowService.removeWorkflowListener(listener);
+    try {
+      serviceRegistry.unRegisterService(AvalonWorkflowNotifier.class.getName(), hostname);
+    } catch (ServiceRegistryException e) {
+      logger.warn("AvalonWorkflowNotifier not registered with service registry.", e);
+    }
+    logger.info("AvalonWorkflowNotifier stopped.");
   }
 
   /**
